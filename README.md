@@ -57,6 +57,6 @@ node ddns.js
 ```
 
 ## TODO
-- [  ] Docker support.
-- [  ] Send email when reboot after power loss.
-- [  ] Detect ip address changes and update DDNS.
+- [ ] Docker support.
+- [ ] Send email when reboot after power loss.
+- [ ] Detect ip address changes and update DDNS.
