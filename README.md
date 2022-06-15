@@ -1,5 +1,7 @@
 # namesilo-ddns
 
+A simple namesilo ddns script which update your namesilo domans to local ip address automatically.
+
 ## Configuration
 
 `ddns.js` reads configuration from `config.json`. You should modify `config.json` before running.
@@ -54,4 +56,7 @@ npm install # install dependencies(only two packages)
 node ddns.js
 ```
 
-
+## TODO
+- [  ] Docker support.
+- [  ] Send email when reboot after power loss.
+- [  ] Detect ip address changes and update DDNS.
