@@ -1,0 +1,16 @@
+{
+  "hosts": [
+    "rss.otherdomain.com",
+    "books.mydomain.com",
+    "monitor.mydomain.com"
+  ],
+  "namesilo_key": "./keys/namesilo_key",
+  "retries": 20,
+  "notify": true,
+  "email_host": "smtp.qq.com",
+  "email_port": 465,
+  "email_from": "xxxx@qq.com",
+  "email_to": "xxxx@outlook.com",
+  "email_secure": true,
+  "email_password": "./keys/email_password"
+}
