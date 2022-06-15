@@ -1,31 +1,41 @@
 const https = require('https')
 const xml2js = require('xml2js')
-const util = require('util')
 const nodemailer = require('nodemailer')
+const fs = require('fs')
 
-const parser = new xml2js.Parser()
+const debug = false
 
-const RETRIES = 30
+const localIp = getLocalIp()
 
+function getLocalIp() {
+    const {
+        networkInterfaces
+    } = require('os')
 
-// TODO: parse from json configuration
-const NAMESILO_KEY = 'a1aa9ba96998f9fef9e46'
-// FIXME: don't support domain.
-const hosts = [ ]
-const domains = [] // TODO: extract fron hosts
-const host = 'smtp.qq.com'
-const port = 465
-const secure = true
-const from = 'xxx@qq.com'
-const pass = 'xxxxxx'
-const to = 'xxxxxxx@outlook.com' // A list of receviers
-const CurrentIP = "xxxxx" // TODO
+    const nets = networkInterfaces()
+    const results = {}
 
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+            if (net.family === 'IPv4' && !net.internal) {
+                if (!results[name]) {
+                    results[name] = []
+                }
+                results[name].push(net.address)
+            }
+        }
+    }
+    console.log(`Network interfaces: ${JSON.stringify(results)}`)
+    for (const netcard of Object.keys(results)) {
+        return results[netcard]
+    }
+    throw "There is no available network interface."
+}
 
-async function GetDDNSRecords(domains, key) {
+async function GetDDNSRecords(hosts, domains, key) {
     const promises = []
     for (const domain of domains) {
-        promises.push(getDDNSRecords(domain, key))
+        promises.push(getDDNSRecords(hosts, domain, key))
     }
     try {
         ddnsRecords = await Promise.all(promises)
@@ -35,20 +45,20 @@ async function GetDDNSRecords(domains, key) {
         }
         return res
     } catch (error) {
-        // console.log(error)
         return error
     }
 }
 
-function getDDNSRecords(domain, key) {
+function getDDNSRecords(hosts, domain, key) {
     return new Promise((resolve, reject) => {
         https.get(`https://www.namesilo.com/api/dnsListRecords?version=1&type=xml&key=${key}&domain=${domain}`, function(res) {
-            let xml_data = ''
+            let xmlData = ''
             res.on('data', (stream) => {
-                xml_data = xml_data + stream
+                xmlData = xmlData + stream
             })
             res.on('end', () => {
-                parser.parseString(xml_data, (error, result) => {
+                const parser = new xml2js.Parser()
+                parser.parseString(xmlData, (error, result) => {
                     if (error === null) {
                         // console.log(JSON.stringify(result, null, 4))
                         let reply = result.namesilo.reply[0]
@@ -63,7 +73,7 @@ function getDDNSRecords(domain, key) {
                                         rrid: record.record_id,
                                         rrhost: parseRrhost(record.host[0]),
                                         domain: parseDomain(record.host[0]),
-                                        rrvalue: CurrentIP,
+                                        rrvalue: localIp,
                                         oldip: record.value[0],
                                         updated: false,
                                     })
@@ -83,22 +93,26 @@ function getDDNSRecords(domain, key) {
 
 function updateHost(record, key) {
     return new Promise((resolve, reject) => {
+        if (record.updated) {
+            resolve()
+        }
         https.get(`https://www.namesilo.com/api/dnsUpdateRecord?version=1&type=xml&key=${key}&domain=${record.domain}&rrid=${record.rrid}&rrhost=${record.rrhost}&rrvalue=${record.rrvalue}&rrttl=7207`, function(res) {
             let xml_data = ''
             res.on('data', (stream) => {
                 xml_data = xml_data + stream
             })
             res.on('end', () => {
+                const parser = new xml2js.Parser()
                 parser.parseString(xml_data, (error, result) => {
                     if (error !== null) {
                         reject(error)
                     }
                     if (result !== null && result !== undefined && result.namesilo !== undefined) {
-                        httpCode = result.namesilo.reply[0].code[0]
+                        const httpCode = result.namesilo.reply[0].code[0]
                         if (httpCode != '300') {
-                            console.error(`${JSON.stringify(record)} http code: ${httpCode}`)
-                            reject(`${JSON.stringify(record)} http code: ${httpCode}`)
+                            reject(`Record ${JSON.stringify(record)} fails! http code: ${httpCode}`)
                         }
+                        console.log(`${record.rrhost}.${record.domain} ip address is updated!`)
                         record.updated = true
                         resolve()
                     }
@@ -110,12 +124,15 @@ function updateHost(record, key) {
 
 // Namesilo seems to limit api request rate.
 // If encounter error, request later again.
-async function UpdateHost(records, key) {
+async function UpdateHost(records, key, retries) {
     let stop = false
-    let retries = 0
-    while (!stop && retries < RETRIES) {
+    let i = 0
+    if (retries === undefined) {
+        retries = 20
+    }
+    while (!stop && i < retries) {
         stop = true
-        ++retries
+        ++i
         const promises = []
         for (const record of records) {
             if (!record.updated) {
@@ -125,12 +142,12 @@ async function UpdateHost(records, key) {
         }
 
         // NOTE: wait all promises fail or finish
-        Promise.all(promises.map(p => p.catch(e => { })))
+        Promise.all(promises.map(p => p.catch(_ => { })))
             .then(_ => { })
-            .catch(_ => { });
+            .catch(err => { if (debug) { console.error(err) } });
         // console.info(JSON.stringify(records))
-        console.log(`retries ${retries} times...`)
-        await sleep(500 + retries * 500)
+        console.log(`retries ${i} times...`)
+        await sleep(500 + i * 500)
     }
     return records
 }
@@ -185,9 +202,36 @@ function parseRrhost(host) {
     return parts.length === 3 ? parts[0] : ''
 }
 
+function getDomains(hosts) {
+    let domains = new Set()
+    for (const host of hosts) {
+        domains.add(parseDomain(host))
+    }
+    return domains
+}
+
+function readSecret(file) {
+    return fs.readFileSync(file, { encoding: 'utf8', flag: 'r' }).trim()
+}
+
+function parseConfig() {
+    const config = require("./config.json")
+    config.domains = getDomains(config.hosts)
+    config.namesilo_key = readSecret(config.namesilo_key)
+    config.email_password = readSecret(config.email_password)
+    return config
+}
+
 (async () => {
-    const records = await GetDDNSRecords(domains, NAMESILO_KEY)
-    await UpdateHost(records, NAMESILO_KEY)
+    const config = parseConfig()
+    console.log("==========Configuration==========")
+    console.log(config)
+    const records = await GetDDNSRecords(config.hosts, config.domains, config.namesilo_key)
+    console.log("==========DDNS Records==========")
+    console.log(records)
+    await UpdateHost(records, config.namesilo_key, config.retries)
+    console.log("==========DDNS Update Results==========")
     console.info(DNSUpdateResult(records))
-    // SendMail(records, host, port, secure, from, pass, to)
+    console.log(`Sending email to ${config.email_to}`)
+    SendMail(records, config.email_host, config.email_port, config.email_secure, config.email_from, config.email_password, config.email_to)
 })()
