@@ -5,9 +5,11 @@ const fs = require('fs')
 
 const debug = false
 
-const localIp = getLocalIp()
-
 function getLocalIp() {
+    if (typeof getLocalIp.ip !== 'undefined') {
+        return getLocalIp.ip
+    }
+
     const {
         networkInterfaces
     } = require('os')
@@ -27,7 +29,8 @@ function getLocalIp() {
     }
     console.log(`Network interfaces: ${JSON.stringify(results)}`)
     for (const netcard of Object.keys(results)) {
-        return results[netcard]
+        getLocalIp.ip = results[netcard]
+        return getLocalIp.ip
     }
     throw "There is no available network interface."
 }
@@ -73,7 +76,7 @@ function getDDNSRecords(hosts, domain, key) {
                                         rrid: record.record_id,
                                         rrhost: parseRrhost(record.host[0]),
                                         domain: parseDomain(record.host[0]),
-                                        rrvalue: localIp,
+                                        rrvalue: getLocalIp(),
                                         oldip: record.value[0],
                                         updated: false,
                                     })
@@ -93,7 +96,8 @@ function getDDNSRecords(hosts, domain, key) {
 
 function updateHost(record, key) {
     return new Promise((resolve, reject) => {
-        if (record.updated) {
+        if (record.updated || record.oldip === getLocalIp()) {
+            record.updated = true
             resolve()
         }
         https.get(`https://www.namesilo.com/api/dnsUpdateRecord?version=1&type=xml&key=${key}&domain=${record.domain}&rrid=${record.rrid}&rrhost=${record.rrhost}&rrvalue=${record.rrvalue}&rrttl=7207`, function(res) {
@@ -107,7 +111,7 @@ function updateHost(record, key) {
                     if (error !== null) {
                         reject(error)
                     }
-                    if (result !== null && result !== undefined && result.namesilo !== undefined) {
+                    if (result !== undefined && result.namesilo !== undefined) {
                         const httpCode = result.namesilo.reply[0].code[0]
                         if (httpCode != '300') {
                             reject(`Record ${JSON.stringify(record)} fails! http code: ${httpCode}`)
