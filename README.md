@@ -51,7 +51,7 @@ All secrets are stored in file. You should write your email password into file `
 ```shell
 git clone https://github.com/kongjun18/namesilo-ddns.githttps://github.com/kongjun18/namesilo-ddns.git
 cd namesilo-ddns
-# configurate your config.json and secrets/
+# Configure your config.json and secrets/
 npm install # install dependencies(only two packages)
 node ddns.js
 ```
@@ -62,7 +62,7 @@ node ddns.js
 mkdir secrets
 # echo "xxxxx" > secrets/email_password
 # echo "xxxxx" > secrets/namesilo_key
-# Modify config.json
+# Configure your config.json
 docker run --network=host --rm -v $(pwd)/secrets:/app/secrets -v $(pwd)/config.json:/app/config.json kongjun18/namesilo-ddns:latest
 ```
 
@@ -70,7 +70,3 @@ docker run --network=host --rm -v $(pwd)/secrets:/app/secrets -v $(pwd)/config.j
 
 - [x] Docker support.
 - [ ] Send email when reboot after power loss.
-
-
-
-# 
