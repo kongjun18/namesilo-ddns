@@ -56,7 +56,21 @@ npm install # install dependencies(only two packages)
 node ddns.js
 ```
 
+## Docker
+
+```shell
+mkdir secrets
+# echo "xxxxx" > secrets/email_password
+# echo "xxxxx" > secrets/namesilo_key
+# Modify config.json
+docker run --network=host --rm -v $(pwd)/secrets:/app/secrets -v $(pwd)/config.json:/app/config.json kongjun18/namesilo-ddns:latest
+```
+
 ## TODO
-- [ ] Docker support.
+
+- [x] Docker support.
 - [ ] Send email when reboot after power loss.
-- [ ] Detect ip address changes and update DDNS.
+
+
+
+# 
