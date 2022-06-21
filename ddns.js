@@ -116,6 +116,7 @@ function updateHost(record, key) {
                         if (httpCode != '300') {
                             reject(`Record ${JSON.stringify(record)} fails! http code: ${httpCode}`)
                         }
+                        newUpdate = true
                         console.log(`${record.rrhost}.${record.domain} ip address is updated!`)
                         record.updated = true
                         resolve()
@@ -239,5 +240,7 @@ function parseConfig() {
     console.info(DNSUpdateResult(records))
     console.log(`==========Sending email==========`)
     console.log(`Send email to ${config.email_to}`)
-    SendMail(records, config.email_host, config.email_port, config.email_secure, config.email_from, config.email_password, config.email_to)
+    if (config.notify && newUpdate) {
+        SendMail(records, config.email_host, config.email_port, config.email_secure, config.email_from, config.email_password, config.email_to)
+    }
 })()
