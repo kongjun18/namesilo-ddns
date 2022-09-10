@@ -66,7 +66,61 @@ mkdir secrets
 docker run --network=host --rm -v $(pwd)/secrets:/app/secrets -v $(pwd)/config.json:/app/config.json kongjun18/namesilo-ddns:latest
 ```
 
-## TODO
+## Timer
 
-- [x] Docker support.
-- [ ] Send email when reboot after power loss.
+Using systemd timer to run this script periodically.
+
+### Nodejs
+
+systemd service file: usr/lib/systemd/system/ddns.service
+
+```
+[Unit]
+Description=Updates your domain address
+
+[Service]
+ExecStart=/usr/bin/node /root/namesilo-ddns/ddns.js
+WorkingDirectory=/root/namesilo-ddns
+```
+**NOTE**: `WorkingDirectory` is the path of the repo
+
+system timer file: usr/lib/systemd/system/ddns.timer
+```
+[Unit]
+Description=Runs namesilo-ddns per hour or reboot
+
+[Timer]
+OnUnitActiveSec=1h
+OnStartupSec=60s
+Unit=ddns.service
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Docker
+
+systemd service file: usr/lib/systemd/system/ddns.service
+
+```
+[Unit]
+Description=Update domain IP address
+
+[Service]
+ExecStart=/usr/bin/docker run --network=host --rm -v <your-path-to-secrets>:/app/secrets -v <your-path-to-config.json>:/app/config.json kongjun18/namesilo-ddns:latest
+```
+
+system timer file: usr/lib/systemd/system/ddns.timer
+
+```
+[Unit]
+Description=Runs namesilo-ddns per hour or after boot
+
+[Timer]
+OnUnitActiveSec=1h
+OnStartupSec=60s
+Unit=ddns.service
+
+[Install]
+WantedBy=multi-user.target
+```
