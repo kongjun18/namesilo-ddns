@@ -29,7 +29,7 @@ function getLocalIp() {
     }
     console.log(`Network interfaces: ${JSON.stringify(results)}`)
     for (const netcard of Object.keys(results)) {
-        getLocalIp.ip = results[netcard]
+        getLocalIp.ip = results[netcard].toString()
         return getLocalIp.ip
     }
     throw "There is no available network interface."
@@ -96,6 +96,7 @@ function getDDNSRecords(hosts, domain, key) {
 
 function updateHost(record, key) {
     return new Promise((resolve, reject) => {
+        console.log(`${typeof getLocalIp()}`)
         if (record.updated || record.oldip === getLocalIp()) {
             record.updated = true
             resolve()
@@ -239,8 +240,10 @@ function parseConfig() {
     console.log("==========DDNS Update Results==========")
     console.info(DNSUpdateResult(records))
     console.log(`==========Sending email==========`)
-    console.log(`Send email to ${config.email_to}`)
-    if (config.notify && newUpdate) {
+    if (config.notify && typeof newUpdate !== 'undefined') {
+        console.log(`Send email to ${config.email_to}`)
         SendMail(records, config.email_host, config.email_port, config.email_secure, config.email_from, config.email_password, config.email_to)
+    } else {
+        console.log(`Domain IP address unchanges!`)
     }
 })()
