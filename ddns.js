@@ -67,6 +67,7 @@ function getDDNSRecords(hosts, domain, key) {
                         let reply = result.namesilo.reply[0]
                         if (reply.code != "300") {
                             reject(`Fail to list domain ${domain}`)
+                            return
                         }
                         const ddnsRecords = []
                         for (const record of reply.resource_record) {
@@ -100,6 +101,7 @@ function updateHost(record, key) {
         if (record.updated || record.oldip === getLocalIp()) {
             record.updated = true
             resolve()
+            return
         }
         https.get(`https://www.namesilo.com/api/dnsUpdateRecord?version=1&type=xml&key=${key}&domain=${record.domain}&rrid=${record.rrid}&rrhost=${record.rrhost}&rrvalue=${record.rrvalue}&rrttl=7207`, function(res) {
             let xml_data = ''
@@ -111,11 +113,13 @@ function updateHost(record, key) {
                 parser.parseString(xml_data, (error, result) => {
                     if (error !== null) {
                         reject(error)
+                        return
                     }
                     if (result !== undefined && result.namesilo !== undefined) {
                         const httpCode = result.namesilo.reply[0].code[0]
                         if (httpCode != '300') {
                             reject(`Record ${JSON.stringify(record)} fails! http code: ${httpCode}`)
+                            return
                         }
                         newUpdate = true
                         console.log(`${record.rrhost}.${record.domain} ip address is updated!`)
