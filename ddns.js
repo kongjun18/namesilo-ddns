@@ -5,6 +5,38 @@ const fs = require('fs')
 
 const debug = false
 
+function isValidUnits(units) {
+    for (let i = 1 i < 4; ++i) {
+        if (units[i] < 0 || units[i] > 255) {
+            return false
+        }
+    }
+    return true
+}
+
+function isPrivateAddress(addr) {
+    const units = addr.split(".").map(unit => parseInt(unit))
+    if (units.length !== 4) {
+        throw `Errorneous IP address: ${addr}`
+    }
+    if (!isValidUnits(units)) {
+        throw `Errorneous IP address: ${addr}`
+    }
+    // 10.0.0.0 ~ 10.255.255.255
+    if (units[0] === 10) {
+        return true
+    }
+    // 172.16.0.0 ~ 172.31.255.255
+    if (units[0] === 172) {
+        return units[1] >= 16 && units[1] <= 31 && units[2] >= 0 && units[2] <= 255 && units[3] >= 0 && units[3]
+    }
+    // 192.168.0.0 ~ 192.168.255.255
+    if (units[0] === 192) {
+        return units[1] === 168 && units[2] >= 0 && units[2] <= 255 && units[3] >= 0 && units[3] <= 255
+    }
+    return false
+}
+
 function getLocalIp() {
     if (typeof getLocalIp.ip !== 'undefined') {
         return getLocalIp.ip
@@ -19,7 +51,7 @@ function getLocalIp() {
 
     for (const name of Object.keys(nets)) {
         for (const net of nets[name]) {
-            if (net.family === 'IPv4' && !net.internal) {
+            if (net.family === 'IPv4' && !net.internal && !isPrivateAddress(net.address)) {
                 if (!results[name]) {
                     results[name] = []
                 }
@@ -32,7 +64,7 @@ function getLocalIp() {
         getLocalIp.ip = results[netcard].toString()
         return getLocalIp.ip
     }
-    throw "There is no available network interface."
+    throw "There is no available public IP address."
 }
 
 async function GetDDNSRecords(hosts, domains, key) {
