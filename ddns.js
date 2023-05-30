@@ -6,7 +6,7 @@ const fs = require('fs')
 const debug = false
 
 function isValidUnits(units) {
-    for (let i = 1 i < 4; ++i) {
+    for (let i = 1; i < 4; ++i) {
         if (units[i] < 0 || units[i] > 255) {
             return false
         }
